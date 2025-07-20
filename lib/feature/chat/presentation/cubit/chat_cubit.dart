@@ -103,4 +103,17 @@ class ChatCubit extends Cubit<ChatState> {
     _messages = [..._messages, botMessage];
     emit(ChatLoaded(messages: _messages, inputText: _inputText));
   }
+
+
+  void sendImageMessage(String imagePath) {
+  final newMessage = MessageModel(
+    imagePath: imagePath,
+    isSentByMe: true,
+    timestamp: DateTime.now(),
+  );
+
+  _messages = [..._messages, newMessage];
+  emit(ChatLoaded(messages: _messages, inputText: ''));
+}
+
 }

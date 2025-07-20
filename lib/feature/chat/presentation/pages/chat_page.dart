@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:chat_app/feature/chat/data/models/message_model.dart';
 import 'package:chat_app/feature/chat/presentation/cubit/chat_cubit.dart';
-import 'package:chat_app/feature/chat/presentation/pages/widgets/message_bubble.dart';
+import 'package:chat_app/feature/chat/presentation/pages/widgets/chat_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -92,7 +95,7 @@ class _ChatPageState extends State<ChatPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Kristin Watson',
+                  'Bavly Ramy',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -149,7 +152,7 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: messageController,
@@ -189,7 +192,19 @@ class _ChatPageState extends State<ChatPage> {
             ),
             IconButton(
               icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-              onPressed: () {},
+              onPressed: () async {
+                final picker = ImagePicker();
+                final XFile? image =
+                    await picker.pickImage(source: ImageSource.camera);
+
+                if (image != null) {
+                  // 🔥 You can now send, preview, or upload this image
+                   context.read<ChatCubit>().sendImageMessage(image.path);
+                  log("📸 Captured image path: ${image.path}");
+                } else {
+                  log("❌ No image captured.");
+                }
+              },
             ),
           ],
         ),
