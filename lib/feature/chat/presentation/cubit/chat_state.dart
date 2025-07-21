@@ -6,19 +6,29 @@ sealed class ChatState {}
 final class ChatInitial extends ChatState {}
 
 final class ChatLoaded extends ChatState {
-  final List<MessageModel> messages;
+  final Map<String, List<MessageModel>> messagesMap;
+  final String selectedUserId;
   final String inputText;
 
   ChatLoaded({
-    required this.messages,
+    required this.messagesMap,
+    required this.selectedUserId,
     required this.inputText,
   });
+
+  /// Helper getter: returns the messages for the currently selected user
+  List<MessageModel> get messagesForSelectedUser =>
+      messagesMap[selectedUserId] ?? [];
 }
 
 final class ChatSuccess extends ChatState {
-  final List<MessageModel> messages;
+  final Map<String, List<MessageModel>> messagesMap;
+  final String selectedUserId;
 
-  ChatSuccess(this.messages);
+  ChatSuccess(this.messagesMap, this.selectedUserId);
+
+  List<MessageModel> get messagesForSelectedUser =>
+      messagesMap[selectedUserId] ?? [];
 }
 
 final class ChatFailure extends ChatState {

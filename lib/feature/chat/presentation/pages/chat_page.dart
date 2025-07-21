@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:chat_app/feature/chat/data/models/message_model.dart';
+import 'package:chat_app/feature/chat/data/models/user_model.dart';
 import 'package:chat_app/feature/chat/presentation/cubit/chat_cubit.dart';
 import 'package:chat_app/feature/chat/presentation/pages/widgets/chat_bubble.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final UserModel user;
+
+  const ChatPage({super.key, required this.user});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -17,10 +20,21 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   late final TextEditingController messageController;
+
   @override
   void initState() {
     super.initState();
     messageController = TextEditingController();
+
+    final cubit = context.read<ChatCubit>();
+
+    final state = cubit.state;
+    final alreadyLoaded =
+        state is ChatLoaded && state.messagesMap.containsKey(widget.user.id);
+
+    if (!alreadyLoaded) {
+      cubit.loadInitialMessages(widget.user.id);
+    }
   }
 
   @override
@@ -44,38 +58,45 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = widget.user.id;
+
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(
-            child:
-                BlocConsumer<ChatCubit, ChatState>(listener: (context, state) {
-              if (state is ChatLoaded) {
-                _scrollToBottom();
-              }
-            }, builder: (context, state) {
-              if (state is ChatLoaded) {
-                final messages = state.messages;
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    return ChatBubble(message: messages[index]);
-                  },
-                );
-              } else {
-                return const Center(child: CircularProgressIndicator());
-              }
-            }),
+            child: BlocConsumer<ChatCubit, ChatState>(
+              listener: (context, state) {
+                if (state is ChatLoaded) {
+                  _scrollToBottom();
+                }
+              },
+              builder: (context, state) {
+                if (state is ChatLoaded) {
+                  final messages = state.messagesMap[userId] ?? [];
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      return ChatBubble(
+                        message: messages[index],
+                        userId: userId,
+                      );
+                    },
+                  );
+                } else {
+                  return const Center(child: CircularProgressIndicator());
+                }
+              },
+            ),
           ),
-          _buildInputBar(context),
+          _buildInputBar(context, userId),
         ],
       ),
     );
   }
 
-  PreferredSize _buildAppBar(BuildContext context) {
+  PreferredSize _buildAppBar() {
     return PreferredSize(
       preferredSize: const Size.fromHeight(70),
       child: AppBar(
@@ -84,27 +105,29 @@ class _ChatPageState extends State<ChatPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Row(
+        title: Row(
           children: [
             CircleAvatar(
-              backgroundImage: AssetImage('assets/icons/3amy.jpg'),
-              minRadius: 26,
+              backgroundImage: AssetImage(widget.user.imageUrl),
+              radius: 25,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Bavly Ramy',
-                  style: TextStyle(
+                  widget.user.name,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
                 ),
                 Text(
-                  'Active 3m ago',
-                  style: TextStyle(
+                  widget.user.isOnline
+                      ? 'Online'
+                      : 'Active ${widget.user.lastSeenTime}',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                   ),
@@ -122,17 +145,13 @@ class _ChatPageState extends State<ChatPage> {
             icon: const Icon(Icons.videocam, color: Colors.white),
             onPressed: () {},
           ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () {},
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildInputBar(BuildContext context) {
-    final ChatCubit cubit = context.read<ChatCubit>();
+  Widget _buildInputBar(BuildContext context, String userId) {
+    final cubit = context.read<ChatCubit>();
 
     return SafeArea(
       child: Container(
@@ -156,17 +175,16 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 child: TextField(
                   controller: messageController,
-                  onChanged: (text) => cubit.updateInputText(text),
+                  onChanged: (text) => cubit.updateInputText(text, userId),
                   onSubmitted: (text) {
                     if (text.trim().isNotEmpty) {
-                      cubit.sendMessage();
+                      cubit.sendMessage(userId);
                       messageController.clear();
-                      cubit.updateInputText('');
-                      FocusScope.of(context).unfocus(); // ✅ Close keyboard
+                      cubit.updateInputText('', userId);
+                      FocusScope.of(context).unfocus();
                     }
                   },
-                  textInputAction:
-                      TextInputAction.send, // changes "Enter" to "Send" icon
+                  textInputAction: TextInputAction.send,
                   decoration: InputDecoration(
                     hintText: "Type message",
                     border: InputBorder.none,
@@ -174,9 +192,9 @@ class _ChatPageState extends State<ChatPage> {
                       icon: const Icon(Icons.send, color: Color(0xFF00BF6C)),
                       onPressed: () {
                         if (messageController.text.trim().isNotEmpty) {
-                          cubit.sendMessage();
+                          cubit.sendMessage(userId);
                           messageController.clear();
-                          cubit.updateInputText('');
+                          cubit.updateInputText('', userId);
                           FocusScope.of(context).unfocus();
                         }
                       },
@@ -198,8 +216,7 @@ class _ChatPageState extends State<ChatPage> {
                     await picker.pickImage(source: ImageSource.camera);
 
                 if (image != null) {
-                  // 🔥 You can now send, preview, or upload this image
-                   context.read<ChatCubit>().sendImageMessage(image.path);
+                  cubit.sendImageMessage(userId, image.path);
                   log("📸 Captured image path: ${image.path}");
                 } else {
                   log("❌ No image captured.");
