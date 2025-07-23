@@ -13,17 +13,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late List dummyList;
+  String searchQuery = '';
+  final TextEditingController searchController = TextEditingController();
+  bool isSearching = false;
 
   @override
   void initState() {
     super.initState();
-    dummyList = List.from(dummyUsers); 
+    dummyList = List.from(dummyUsers);
   }
 
   void _deleteUser(int index) {
-    final deletedUser = dummyList[index];
+    final deletedUser = _filteredList()[index];
     setState(() {
-      dummyList.removeAt(index);
+      dummyList.removeWhere((user) => user.id == deletedUser.id);
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${deletedUser.name} deleted')),
@@ -31,20 +34,30 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _pinUser(int index) {
-    final pinnedUser = dummyList[index];
+    final pinnedUser = _filteredList()[index];
     setState(() {
-      dummyList.removeAt(index);
-      dummyList.insert(0, pinnedUser); // move to top
+      dummyList.removeWhere((user) => user.id == pinnedUser.id);
+      dummyList.insert(0, pinnedUser);
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${pinnedUser.name} pinned to top')),
     );
   }
 
+  List _filteredList() {
+    if (searchQuery.isEmpty) return dummyList;
+    return dummyList
+        .where((user) =>
+            user.name.toLowerCase().contains(searchQuery.toLowerCase()))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredList();
+
     return Scaffold(
-      appBar: _buildAppBar(),
+      appBar: isSearching ? _buildSearchBar() : _buildAppBar(),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -52,10 +65,10 @@ class _HomePageState extends State<HomePage> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: dummyList.length,
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
                 return Slidable(
-                  key: ValueKey(dummyList[index].id),
+                  key: ValueKey(filtered[index].id),
                   endActionPane: ActionPane(
                     motion: const DrawerMotion(),
                     children: [
@@ -75,7 +88,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  child: ChatTile(user: dummyList[index]),
+                  child: ChatTile(user: filtered[index]),
                 );
               },
             ),
@@ -100,13 +113,58 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: const Color(0xFF00BF6C),
+      title: const Text('Chats',
+          style: TextStyle(color: Colors.white, fontSize: 26)),
+      actions: [
+        IconButton(
+          onPressed: () {
+            setState(() => isSearching = true);
+          },
+          icon: const Icon(Icons.search, color: Colors.white, size: 28),
+        )
+      ],
+    );
+  }
+
+  AppBar _buildSearchBar() {
+    return AppBar(
+      backgroundColor: const Color(0xFF00BF6C),
+      title: TextField(
+        controller: searchController,
+        autofocus: true,
+        style: const TextStyle(color: Colors.white, fontSize: 18),
+        decoration: const InputDecoration(
+          hintText: 'Search...',
+          hintStyle: TextStyle(color: Colors.white70),
+          border: InputBorder.none,
+        ),
+        onChanged: (value) {
+          setState(() => searchQuery = value);
+        },
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () {
+          setState(() {
+            isSearching = false;
+            searchQuery = '';
+            searchController.clear();
+          });
+        },
+      ),
+    );
+  }
+
   void _showDeleteConfirmation(int index) {
+    final user = _filteredList()[index];
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Delete Chat"),
-        content:
-            Text("Are you sure you want to delete ${dummyList[index].name}?"),
+        content: Text("Are you sure you want to delete ${user.name}?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -121,22 +179,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFF00BF6C),
-      title: const Text(
-        'Chats',
-        style: TextStyle(color: Colors.white, fontSize: 26),
-      ),
-      actions: [
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.search, color: Colors.white, size: 28),
-        )
-      ],
     );
   }
 
